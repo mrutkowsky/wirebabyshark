@@ -2,42 +2,200 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ASCII Shark</title>
+    <title>wirebabyshark</title>
     <style>
         body {
-            font-family: monospace; /* Use a monospace font for ASCII art */
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
             display: flex;
             justify-content: center;
             align-items: center;
             height: 100vh;
-            background-color: #e0f7fa;
-            white-space: pre; /* Preserve spaces and line breaks for ASCII art */
+            background-color: #f4f4f9;
         }
-        pre {
-            font-size: 16px;
-            color: #00796b;
+        .container {
+            width: 80%;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        .title {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .content {
+            display: flex; /* Flexbox for side-by-side layout */
+            justify-content: space-between; /* Space between divs */
+            gap: 20px; /* Add spacing between the two windows */
+        }
+        .window {
+            flex: 1; /* Make both windows take equal space */
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            background-color: #f9f9f9;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+        input[type="file"] {
+            padding: 5px;
+        }
+        button {
+            padding: 10px 20px;
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        select {
+            width: 100%;
+            height: 150px;
+            padding: 10px;
+            font-size: 14px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            background-color: white;
+        }
+        .message {
+            margin-top: 20px;
+            font-weight: bold;
+            text-align: center;
+        }
+        .success {
+            color: green;
+        }
+        .error {
+            color: red;
         }
     </style>
 </head>
-<br>
-    <p>Welcome to wirebabyshark project :)</p><br>
-    <pre>
-                                 ,-
-                               ,'::|
-                              /::::|
-                            ,'::::o\                                      _..
-         ____........-------,..::?88b                                  ,-' /
- _.--"""". . . .      .   .  .  .  ""`-._                           ,-' .;'
-<. - :::::o......  ...   . . .. . .  .  .""--._                  ,-'. .;'
- `-._  ` `":`:`:`::||||:::::::::::::::::.:. .  ""--._ ,'|     ,-'.  .;'
-     """_=--       //'doo.. ````:`:`::::::::::.:.:.:. .`-`._-'.   .;'
-         ""--.__     P(       \               ` ``:`:``:::: .   .;'
-                "\""--.:-.     `.                             .:/
-                  \. /    `-._   `.""-----.,-..::(--"".\""`.  `:\
-                   `P         `-._ \          `-:\          `. `:\
-                                   ""            "            `-._) 
-    </pre>
+<body>
+    <div class="container">
+        <!-- Centered Title -->
+        <h1 class="title">PCAP* File Manager</h1>
+        
+        <!-- Content Section with Side-by-Side Divs -->
+        <div class="content">
+            <!-- File Upload Window -->
+            <div class="window">
+                <h2>Upload PCAP Files</h2>
+                <form id="uploadForm" action="/upload" method="POST" enctype="multipart/form-data">
+                    <div class="form-group">
+                        <label for="pcapFile">Select a PCAP file to upload:</label>
+                        <input type="file" id="pcapFile" name="pcapFile" accept=".pcap" required>
+                    </div>
+                    <button type="submit">Upload</button>
+                </form>
+            </div>
+
+            <!-- Uploaded Files Management Window -->
+            <div class="window">
+                <h2>Manage Uploaded Files</h2>
+                <select id="fileList" multiple>
+                    <!-- File list will populate dynamically -->
+                </select>
+                <button id="deleteFiles" style="margin-top: 10px;">Delete Selected Files</button>
+            </div>
+        </div>
+
+        <div class="message" id="message"></div>
+    </div>
+
+    <script>
+        const uploadForm = document.getElementById('uploadForm');
+        const fileList = document.getElementById('fileList');
+        const deleteFilesButton = document.getElementById('deleteFiles');
+        const messageDiv = document.getElementById('message');
+
+        // Fetch the list of uploaded files
+        async function fetchFiles() {
+            try {
+                const response = await fetch('/files');
+                const files = await response.json();
+                fileList.innerHTML = ''; // Clear existing items
+                files.forEach(file => {
+                    const option = document.createElement('option');
+                    option.value = file;
+                    option.textContent = file;
+                    fileList.appendChild(option);
+                });
+            } catch (error) {
+                console.error('Error fetching files:', error);
+            }
+        }
+
+        // Handle file upload
+        uploadForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const formData = new FormData(uploadForm);
+
+            try {
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+                if (result.success) {
+                    messageDiv.textContent = result.message;
+                    messageDiv.className = 'message success';
+                    fetchFiles(); // Refresh the file list
+                } else {
+                    messageDiv.textContent = result.message;
+                    messageDiv.className = 'message error';
+                }
+            } catch (error) {
+                messageDiv.textContent = 'An error occurred while uploading the file.';
+                messageDiv.className = 'message error';
+            }
+        });
+
+        // Handle file deletion
+        deleteFilesButton.addEventListener('click', async () => {
+            const selectedFiles = Array.from(fileList.selectedOptions).map(option => option.value);
+            if (selectedFiles.length === 0) {
+                messageDiv.textContent = 'No files selected for deletion.';
+                messageDiv.className = 'message error';
+                return;
+            }
+
+            try {
+                const response = await fetch('/delete', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ files: selectedFiles })
+                });
+
+                const result = await response.json();
+                if (result.success) {
+                    messageDiv.textContent = result.message;
+                    messageDiv.className = 'message success';
+                    fetchFiles(); // Refresh the file list
+                } else {
+                    messageDiv.textContent = result.message;
+                    messageDiv.className = 'message error';
+                }
+            } catch (error) {
+                messageDiv.textContent = 'An error occurred while deleting files.';
+                messageDiv.className = 'message error';
+            }
+        });
+
+        // Initialize file list on page load
+        fetchFiles();
+    </script>
 </body>
 </html>
