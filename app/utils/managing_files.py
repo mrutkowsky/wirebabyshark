@@ -2,6 +2,8 @@ from pcap_handler import pcapHandler
 import pandas as pd
 
 from scapy.all import *
+import random
+import string
 import pandas as pd
 from pcap_handler import pcapHandler
 from progressbar import ProgressBar
@@ -55,3 +57,34 @@ def extract(pcap_file):
         # Drop old index column
         df = df.drop(columns="index")
     return df
+
+def generate_session_id():
+    """
+    Generates an 8-digit numeric folder name.
+    """
+    return ''.join(random.choices(string.digits, k=8))
+
+def get_or_create_session_id(session):
+    if 'session_id' not in session:
+        session['session_id'] = generate_session_id()
+    return session['session_id']
+
+def combine_pcap_files(upload_folder, session_id):
+    print(upload_folder)
+    print(session_id)
+    session_files_folder = os.path.join(upload_folder, session_id)
+    print(session_files_folder)
+    combined_data = pd.DataFrame()
+
+    for filename in os.listdir(session_files_folder):
+        print(filename)
+        file_path = os.path.join(session_files_folder, filename)
+        if os.path.isfile(file_path):
+            print(file_path)
+            data = read_pcap(file_path)
+            data_extracted = extract(data)
+            print(data_extracted)
+            combined_data = pd.concat([combined_data, data_extracted], ignore_index=True)
+            print(combined_data)
+    print(combined_data) 
+    return combined_data

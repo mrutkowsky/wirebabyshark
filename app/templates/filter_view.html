@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Packet Filter</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.1.3/css/bootstrap.min.css">
+    <style>
+        .filter-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        .filter-row select,
+        .filter-row input {
+            flex: 1;
+        }
+        .filter-row .btn {
+            flex-shrink: 0;
+        }
+        .filter-input-group {
+            display: flex;
+            gap: 10px;
+            flex: 2;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-3 d-flex justify-content-start align-items-center">
+        <button type="button" class="btn btn-light me-3" style="margin-top: 15px;" s onclick="window.location.href='/'">
+            <span>&larr;</span> Manage Files
+        </button>
+    </div>
+<div class="container mt-5">
+    <h1>Filter Packet Data</h1>
+
+    <!-- Form for selecting filters -->
+    <form id="filterForm">
+        <!-- Filter rows container -->
+        <div id="filterGrid"></div>
+
+        <!-- Buttons -->
+        <button type="button" class="btn btn-secondary" id="addFilterBtn">+ Add Filter</button>
+        <button type="submit" class="btn btn-primary">Apply Filters</button>
+    </form>
+
+    <div class="message" id="message"></div>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    const filterTypes = {
+        version: ['Equal', 'Range', 'Not Equal'],
+        ihl: ['Equal', 'Not Equal'],
+        tos: ['Equal', 'Not Equal'],
+        len: ['Equal', 'Range', 'Not Equal'],
+        id: ['Equal', 'Not Equal'],
+        flags: ['Equal', 'Not Equal'],
+        frag: ['Equal', 'Not Equal'],
+        ttl: ['Equal', 'Not Equal'],
+        proto: ['Equal', 'Not Equal'],
+        chksum: ['Equal', 'Not Equal'],
+        src: ['Equal', 'Not Equal'],
+        dst: ['Equal', 'Not Equal'],
+        options: ['Equal', 'Not Equal'],
+        time: ['Equal', 'Not Equal'],
+        sport: ['Equal', 'Not Equal'],
+        dport: ['Equal', 'Not Equal'],
+        seq: ['Equal', 'Not Equal'],
+        ack: ['Equal', 'Not Equal'],
+        dataofs: ['Equal', 'Not Equal'],
+        reserved: ['Equal', 'Not Equal'],
+        window: ['Equal', 'Not Equal'],
+        urgptr: ['Equal', 'Not Equal'],
+        payload: ['Equal', 'Not Equal'],
+        payload_raw: ['Equal', 'Not Equal'],
+        payload_hex: ['Equal', 'Not Equal']
+    };
+
+    const columns = Object.keys(filterTypes);
+
+    let filterCount = 0;
+
+    const messageDiv = document.getElementById('message');
+
+    // Add a filter row
+    function addFilterRow() {
+        filterCount++;
+        const filterGrid = document.getElementById('filterGrid');
+        const filterRow = document.createElement('div');
+        filterRow.classList.add('filter-row');
+        filterRow.id = `filterRow${filterCount}`;
+
+        // Column selector
+        const columnSelect = document.createElement('select');
+        columnSelect.classList.add('form-select');
+        columnSelect.name = `filter[${filterCount}][column]`;
+        columnSelect.innerHTML = columns.map(col => `<option value="${col}">${col}</option>`).join('');
+
+        // Filter type selector
+        const filterTypeSelect = document.createElement('select');
+        filterTypeSelect.classList.add('form-select');
+        filterTypeSelect.name = `filter[${filterCount}][type]`;
+
+        columnSelect.addEventListener('change', function () {
+            updateFilterTypeOptions(columnSelect, filterTypeSelect);
+        });
+        updateFilterTypeOptions(columnSelect, filterTypeSelect);
+
+        // Value inputs
+        const filterValueInput = document.createElement('input');
+        filterValueInput.classList.add('form-control');
+        filterValueInput.type = 'text';
+        filterValueInput.name = `filter[${filterCount}][value]`;
+
+        const filterValueRangeMin = document.createElement('input');
+        filterValueRangeMin.classList.add('form-control');
+        filterValueRangeMin.type = 'number';
+        filterValueRangeMin.name = `filter[${filterCount}][valueMin]`;
+        filterValueRangeMin.placeholder = 'Min';
+        filterValueRangeMin.style.display = 'none';
+
+        const filterValueRangeMax = document.createElement('input');
+        filterValueRangeMax.classList.add('form-control');
+        filterValueRangeMax.type = 'number';
+        filterValueRangeMax.name = `filter[${filterCount}][valueMax]`;
+        filterValueRangeMax.placeholder = 'Max';
+        filterValueRangeMax.style.display = 'none';
+
+        filterTypeSelect.addEventListener('change', function () {
+            if (filterTypeSelect.value === 'Range') {
+                filterValueInput.style.display = 'none';
+                filterValueRangeMin.style.display = 'block';
+                filterValueRangeMax.style.display = 'block';
+            } else {
+                filterValueInput.style.display = 'block';
+                filterValueRangeMin.style.display = 'none';
+                filterValueRangeMax.style.display = 'none';
+            }
+        });
+
+        // Group selector
+        const groupSelect = document.createElement('select');
+        groupSelect.classList.add('form-select');
+        groupSelect.name = `filter[${filterCount}][group]`;
+        groupSelect.innerHTML = `
+            <option value="">None</option>
+            <option value="src">Source IP</option>
+            <option value="dst">Destination IP</option>
+            <option value="proto">Protocol</option>
+            <option value="len">Length</option>
+        `;
+
+        // Remove button
+        const removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.classList.add('btn', 'btn-danger', 'btn-sm');
+        removeBtn.textContent = 'Remove';
+        removeBtn.addEventListener('click', () => filterRow.remove());
+
+        // Append elements
+        filterRow.append(columnSelect, filterTypeSelect, filterValueInput, filterValueRangeMin, filterValueRangeMax, groupSelect, removeBtn);
+        filterGrid.appendChild(filterRow);
+    }
+
+    function updateFilterTypeOptions(columnSelect, filterTypeSelect) {
+        const selectedColumn = columnSelect.value;
+        const types = filterTypes[selectedColumn] || ['Equal', 'Not Equal'];
+        filterTypeSelect.innerHTML = types.map(type => `<option value="${type}">${type}</option>`).join('');
+    }
+
+    document.getElementById('addFilterBtn').addEventListener('click', addFilterRow);
+
+    // Handle form submission
+    document.getElementById('filterForm').addEventListener('submit', function (event) {
+        event.preventDefault();
+        const filters = constructFilters();
+        console.log("Constructed filter object:", filters);
+
+        // Send filters to the API
+        (async () => {
+            try {
+            const response = await fetch('/filter_data', {
+                method: 'POST',
+                headers: {
+                'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(filters)
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP status ${response.status}`);
+            }
+
+            const result = await response.json();
+            console.log("Received response data:", result);
+            // updateResultsTable(data);
+
+            message.textContent = result.message;
+            message.classList.add('alert', 'alert-success');
+            } catch (error) {
+            console.error("Error in API call:", error);
+            message.textContent = `Error: ${error.message}`;
+            message.classList.add('alert', 'alert-danger');
+            }
+        })();
+        });
+
+    function constructFilters() {
+        const filterRows = document.querySelectorAll('.filter-row');
+        const filters = {
+            columns: {}
+        };
+
+        filterRows.forEach(row => {
+            const column = row.querySelector('select[name$="[column]"]').value;
+            const type = row.querySelector('select[name$="[type]"]').value;
+            const value = row.querySelector('input[name$="[value]"]').value;
+            const valueMin = row.querySelector('input[name$="[valueMin]"]').value;
+            const valueMax = row.querySelector('input[name$="[valueMax]"]').value;
+            const groupBy = row.querySelector('select[name$="[group]"]').value;
+
+            filters.columns[column] = {
+                group_by: groupBy !== "",
+                sort: null, // Sorting logic can be added here if needed
+                filter: {
+                    type: type.toLowerCase().replace(' ', '_'),
+                    value: type === 'Range' ? [valueMin, valueMax] : value.split(',').map(val => val.trim())
+                }
+            };
+        });
+
+        console.log("Filters structure:", JSON.stringify(filters, null, 2));
+        return filters;
+    }
+
+    // function updateResultsTable(data) {
+    //     const tbody = document.querySelector('#resultsTable tbody');
+    //     tbody.innerHTML = '';
+    //     data.forEach(item => {
+    //         const row = document.createElement('tr');
+    //         row.innerHTML = `
+    //             <td>${item.src || ''}</td>
+    //             <td>${item.dst || ''}</td>
+    //             <td>${item.proto || ''}</td>
+    //             <td>${item.len || ''}</td>
+    //         `;
+    //         tbody.appendChild(row);
+    //     });
+    // }
+
+    // Add the first filter row on load
+    addFilterRow();
+</script>
+
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.1.3/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
