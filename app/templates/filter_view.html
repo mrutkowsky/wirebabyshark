@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Packet Filter</title>
+    <title>wirebabyshark</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.1.3/css/bootstrap.min.css">
     <style>
         .filter-row {
@@ -24,14 +24,51 @@
             gap: 10px;
             flex: 2;
         }
+
+        .summary-container {
+            border: 1px solid #ccc;
+            padding: 20px;
+            margin: 20px;
+            font-family: Arial, sans-serif;
+        }
+        .summary-item {
+            margin-bottom: 10px;
+        }
+        .summary-title {
+            font-weight: bold;
+        }
+        .summary-subitem {
+            margin-left: 20px;
+        }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+        }
+        th {
+            background-color: #f4f4f4;
+        }
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
     </style>
 </head>
 <body>
-    <div class="container mt-3 d-flex justify-content-start align-items-center">
-        <button type="button" class="btn btn-light me-3" style="margin-top: 15px;" s onclick="window.location.href='/'">
-            <span>&larr;</span> Manage Files
+    <div class="container mt-3 d-flex justify-content-between align-items-center">
+        <!-- Manage Files Button -->
+        <button type="button" class="btn btn-light" style="margin-top: 15px;" onclick="window.location.href='/'">
+            <span>&larr; Manage Files</span>
+        </button>
+    
+        <!-- Summary Button -->
+        <button type="button" class="btn btn-light" style="margin-top: 15px;" onclick="window.location.href='/filtering_summary'">
+            <span>&rarr; Summary</span>
         </button>
     </div>
+    
 <div class="container mt-5">
     <h1>Filter Packet Data</h1>
 
@@ -49,35 +86,18 @@
             </tbody>
         </table>
     </div>
-</div>
 
 <script>
     const filterTypes = {
-        version: ['Equal', 'Range', 'Not Equal'],
-        ihl: ['Equal', 'Not Equal'],
-        tos: ['Equal', 'Not Equal'],
         len: ['Equal', 'Range', 'Not Equal'],
-        id: ['Equal', 'Not Equal'],
-        flags: ['Equal', 'Not Equal'],
-        frag: ['Equal', 'Not Equal'],
+        flags: ['Equal'],
         ttl: ['Equal', 'Not Equal'],
         proto: ['Equal', 'Not Equal'],
-        chksum: ['Equal', 'Not Equal'],
         src: ['Equal', 'Not Equal'],
         dst: ['Equal', 'Not Equal'],
-        options: ['Equal', 'Not Equal'],
-        time: ['Equal', 'Not Equal'],
+        time: ['Equal', 'Range'],
         sport: ['Equal', 'Not Equal'],
         dport: ['Equal', 'Not Equal'],
-        seq: ['Equal', 'Not Equal'],
-        ack: ['Equal', 'Not Equal'],
-        dataofs: ['Equal', 'Not Equal'],
-        reserved: ['Equal', 'Not Equal'],
-        window: ['Equal', 'Not Equal'],
-        urgptr: ['Equal', 'Not Equal'],
-        payload: ['Equal', 'Not Equal'],
-        payload_raw: ['Equal', 'Not Equal'],
-        payload_hex: ['Equal', 'Not Equal']
     };
 
     const columns = Object.keys(filterTypes);
@@ -142,18 +162,6 @@
             }
         });
 
-        // Group selector
-        const groupSelect = document.createElement('select');
-        groupSelect.classList.add('form-select');
-        groupSelect.name = `filter[${filterCount}][group]`;
-        groupSelect.innerHTML = `
-            <option value="">None</option>
-            <option value="src">Source IP</option>
-            <option value="dst">Destination IP</option>
-            <option value="proto">Protocol</option>
-            <option value="len">Length</option>
-        `;
-
         // Remove button
         const removeBtn = document.createElement('button');
         removeBtn.type = 'button';
@@ -162,7 +170,7 @@
         removeBtn.addEventListener('click', () => filterRow.remove());
 
         // Append elements
-        filterRow.append(columnSelect, filterTypeSelect, filterValueInput, filterValueRangeMin, filterValueRangeMax, groupSelect, removeBtn);
+        filterRow.append(columnSelect, filterTypeSelect, filterValueInput, filterValueRangeMin, filterValueRangeMax, removeBtn);
         filterGrid.appendChild(filterRow);
     }
 
@@ -221,11 +229,8 @@
             const value = row.querySelector('input[name$="[value]"]').value;
             const valueMin = row.querySelector('input[name$="[valueMin]"]').value;
             const valueMax = row.querySelector('input[name$="[valueMax]"]').value;
-            const groupBy = row.querySelector('select[name$="[group]"]').value;
 
             filters.columns[column] = {
-                group_by: groupBy !== "",
-                sort: null, // Sorting logic can be added here if needed
                 filter: {
                     type: type.toLowerCase().replace(' ', '_'),
                     value: type === 'Range' ? [valueMin, valueMax] : value.split(',').map(val => val.trim())
@@ -255,7 +260,6 @@
     // Add the first filter row on load
     addFilterRow();
 </script>
-
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.1.3/js/bootstrap.bundle.min.js"></script>
 </body>

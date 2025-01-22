@@ -16,12 +16,46 @@ class PacketAnalyzer:
         else:
             raise ValueError(f"Column '{column_name}' does not exist in the DataFrame.")
 
-    def filter_by_column_value(self, column_name, value):
+    def filter_by_column_values(self, column_name, values):
         """
-        Filters the DataFrame by a column and value.
+        Filters the DataFrame by a column and a list of values.
         """
         if column_name in self.df.columns:
-            return self.df[self.df[column_name] == value]
+            print(f"Filtering out values: {values} from column: {column_name}")
+            self.df = self.df[self.df[column_name].isin(values)]
+            # print(f"Number of rows before filtering: {len(self.df)}")
+            print(f"Number of rows after filtering: {len(self.df)}")
+            return self.df
+        else:
+            raise ValueError(f"Column '{column_name}' does not exist in the DataFrame.")
+
+    def filter_by_column_values_neg(self, column_name, values):
+        """
+        Filters the DataFrame by a column and a list of values.
+        """
+        if column_name in self.df.columns:
+            print(f"Filtering out values: {values} from column: {column_name}")
+            self.df = self.df[~self.df[column_name].isin(values)]
+            # print(f"Number of rows before filtering: {len(self.df)}")
+            print(f"Number of rows after filtering: {len(self.df)}")
+            return self.df
+        else:
+            raise ValueError(f"Column '{column_name}' does not exist in the DataFrame.")
+
+    def filter_by_column_range(self, column_name, value_range):
+        """
+        Filters the DataFrame by a column and a range of values.
+        """
+        if column_name in self.df.columns:
+            if isinstance(value_range, list) and len(value_range) == 2:
+                print(f"Filtering out values: {value_range} from column: {column_name}")
+                self.df = self.df[(self.df[column_name] >= int(value_range[0])) & (self.df[column_name] <= int(value_range[1]))]
+
+                # print(f"Number of rows before filtering: {len(self.df)}")
+                print(f"Number of rows after filtering: {len(self.df)}")
+                return self.df
+            else:
+                raise ValueError(f"Value range for column '{column_name}' must be a list of two elements.")
         else:
             raise ValueError(f"Column '{column_name}' does not exist in the DataFrame.")
 
@@ -33,6 +67,8 @@ class PacketAnalyzer:
             return self.df[column_name].unique()
         else:
             raise ValueError(f"Column '{column_name}' does not exist in the DataFrame.")
+        
+
 
     def display(self):
         """
@@ -40,23 +76,3 @@ class PacketAnalyzer:
         """
         return self.df
 
-
-
-# Create an instance of PacketAnalyzer
-# analyzer = PacketAnalyzer(data)
-
-# # Group by 'src' column and count records
-# print("Grouped by 'src':")
-# print(analyzer.group_by_column('src'))
-
-# # Filter by a specific source IP
-# print("\nFiltered by src='10.0.0.1':")
-# print(analyzer.filter_by_column('src', '10.0.0.1'))
-
-# # Get unique values in 'dst' column
-# print("\nUnique values in 'dst':")
-# print(analyzer.get_unique_values('dst'))
-
-# # Display the current DataFrame
-# print("\nCurrent DataFrame:")
-# print(analyzer.display())

@@ -1,50 +1,29 @@
-from flask import Flask, request, jsonify, render_template, session
+from flask import Flask, request, jsonify, render_template, session,  make_response
 import os
 import uuid
-from utils.managing_files import read_pcap, extract, generate_session_id, get_or_create_session_id, combine_pcap_files
+import zipfile
+import io
+import pandas as pd
+from utils.managing_files import \
+    read_pcap, \
+    generate_session_id, \
+    get_or_create_session_id, \
+    combine_pcap_files, \
+    create_response_report, \
+    write_to_txt
+from utils.data_processing import \
+    clean_value, \
+    summarize_df, \
+    summarize_networking_df, \
+    rag_prompt, \
+    preprocess_csv
 from utils.packet_analyzer import PacketAnalyzer
 
 app = Flask(__name__)
 
-app.secret_key = 'your_secret_key_here'  # Replace 'your_secret_key_here' with a unique and secret key
-rename_map = {
-    'version': 'ip_version',
-    'ihl': 'ip_ihl',
-    'tos': 'ip_tos',
-    'len': 'ip_len',
-    'id': 'ip_id',
-    'flags': 'flags',
-    'frag': 'ip_frag',
-    'ttl': 'ip_ttl',
-    'proto': 'ip_proto',
-    'chksum': 'chksum',
-    'src': 'ip_src',
-    'dst': 'ip_dst',
-    'options': 'options',
-    'sport': 'udp_sport',
-    'dport': 'udp_dport',
-    'chksum': 'chksum',
-    'seq': 'tcp_seq',
-    'ack': 'tcp_ack',
-    'dataofs': 'tcp_dataofs',
-    'reserved': 'tcp_reserved',
-    'flags': 'flags',
-    'window': 'tcp_window',
-    'urgptr': 'tcp_urgptr',
-    'options': 'options',
-    'payload': 'app_payload',
-    'payload_raw': 'app_payload_raw',
-    'payload_hex': 'app_payload_hex',
-}
-rename_map_2 = {
-    5: 'ip_flags',
-    20: 'tcp_flags',
-    12: 'ip_options',
-    24: 'tcp_options',
-    9: 'ip_chskum',
-    22: 'udp_chskum'
-}
-
+app.secret_key = os.environ["SECRET_KEY"] 
+OPENAI_API_KEY = os.environ["OPENAI_API_KEY"]
+inteligent_overview_extension = "enabled"
 
 UPLOAD_FOLDER = 'uploads'
 ALLOWED_EXTENSIONS = {'pcap', 'pcapng'}
@@ -90,7 +69,7 @@ def list_files():
     try:
         session_id = get_or_create_session_id(session)
         session_files_folder = os.path.join(app.config['UPLOAD_FOLDER'], session_id)
-        files = os.listdir(session_files_folder)
+        files = [f for f in os.listdir(session_files_folder) if f != 'tmp']
         return jsonify(files)
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)})
@@ -130,56 +109,148 @@ def filter_data():
     print(session_id)
     print(data)
     analyzer = PacketAnalyzer(data)
-    filtered_df = print(analyzer.display())
+    print(analyzer.display())
+    filtered_df = pd.DataFrame()
     
     for column, operation in columns.items():
         # Apply filters based on the operation
         if operation.get('filter'):
             filter_type = operation['filter'].get('type')
             filter_value = operation['filter'].get('value')
+            filter_value = clean_value(filter_value)
             
             if filter_type == 'equal':
                 print(column)
-                print(filter_value[0])
-                analyzer.filter_by_column_value(column, filter_value[0])
+                print(filter_value)
+                analyzer.filter_by_column_values(column, filter_value)
             elif filter_type == 'not_equal':
-                filtered_df = filtered_df[~filtered_df[column].isin(filter_value)]
+                analyzer.filter_by_column_values_neg(column, filter_value)
+            elif filter_type == 'range':
+                print(filter_value)
+                analyzer.filter_by_column_range(column, filter_value)
             else:
-                return jsonify({'error': f"Unsupported filter type: {filter_type}"}), 400
+                    return jsonify({'error': f"Unsupported filter type: {filter_type}"}), 400
+
     filtered_df = analyzer.display()
-    print(filtered_df)
-    print(filtered_df.columns)
-    filtered_df.rename(columns=rename_map, inplace=True)
-    columns = list(filtered_df.columns)
-
-    filtered_df.columns.values[5] = 'ip_flags' 
-    filtered_df.columns.values[20] = 'tcp_flags'
-
-    filtered_df.columns.values[12] = 'ip_options' 
-    filtered_df.columns.values[24] = 'tcp_options' 
-
-    filtered_df.columns.values[9] = 'ip_chskum' 
-    filtered_df.columns.values[22] = 'udp_chskum'
-
-    # columns_to_drop = ['app_payload', 'app_payload_raw', 'app_payload_hex']
-    # filtered_df.drop(columns=columns_to_drop, inplace=True)
-
-    print(filtered_df.columns)
-
-    print(filtered_df)
+    tmp_folder = os.path.join(app.config['UPLOAD_FOLDER'], session_id, 'tmp')
+    os.makedirs(tmp_folder, exist_ok=True)
+    csv_path = os.path.join(tmp_folder, 'filtered_data.csv')
+    filtered_df.to_csv(csv_path, index=False)
+    summarization = summarize_networking_df(filtered_df)
+    if inteligent_overview_extension == "enabled":
+        documents = preprocess_csv(csv_path)
+        inteligent_overview = rag_prompt(api_key=OPENAI_API_KEY, documents=documents,
+                                        query="Please analyze provided traffic and check if you are able to spot any anomalies."
+        )
+        write_to_txt(os.path.join(tmp_folder, f'inteligent_overview_{session_id}.txt'), inteligent_overview)
     
-    return jsonify({'success': True, 'message' : f'Data has been filtered successfully! Filter: {filter_object}'})
+        return jsonify({'success': True, 'message' : f'Data has been filtered successfully! Filter: {filter_object}. \n Data summary: {summarization} \n Intelligent overview: {inteligent_overview}'})
+    else:  
+        return jsonify({'success': True, 'message' : f'Data has been filtered successfully! Filter: {filter_object}. \n Data summary: {summarization}'})
 
-        
-    # Check if data was successfully parsed
-    # if not data:
-    #     return jsonify({'error': 'Invalid or missing JSON filtering data'}), 400
+
+@app.route('/filtering_summary', methods=['GET'])
+def get_filtering_summary():
+
+    session_id = get_or_create_session_id(session)
+    tmp_folder = os.path.join(app.config['UPLOAD_FOLDER'], session_id, 'tmp')
+    csv_path = os.path.join(tmp_folder, 'filtered_data.csv')
+    if inteligent_overview_extension == "enabled":
+        inteligent_overview_path = os.path.join(tmp_folder, f'inteligent_overview_{session_id}.txt')
+        with open(inteligent_overview_path, 'r') as file:
+            inteligent_overview = file.read()
+    if os.path.exists(csv_path):
+        filtered_df = pd.read_csv(csv_path)
+    else:
+        return jsonify({'success': False, 'message': 'Filtered data not found.'})
+    summarization = summarize_networking_df(filtered_df)
+    if inteligent_overview_extension == "enabled":
+        return render_template('summary.html', filtering_results=summarization, inteligent_overview=inteligent_overview)
+    else:
+        return render_template('summary.html', filtering_results=summarization)
+
+@app.route('/get_filtered_data', methods=['GET'])
+def get_filtered_data():
+    report_type = "csv"
+    print(report_type)
+    session_id = get_or_create_session_id(session)
+    tmp_folder = os.path.join(app.config['UPLOAD_FOLDER'], session_id, 'tmp')
+    file_path = os.path.join(tmp_folder, 'filtered_data.csv')
+    filtered_df = pd.read_csv(file_path)
+    print(filtered_df.head())  
+    summarization = summarize_networking_df(filtered_df)
+    if inteligent_overview_extension == "enabled":
+        inteligent_overview_path = os.path.join(tmp_folder, f'inteligent_overview_{session_id}.txt')
+        with open(inteligent_overview_path, 'r') as file:
+                inteligent_overview = file.read()
+        print(inteligent_overview)
+
+    try:
+        response_filtered_data = create_response_report(
+            content=filtered_df,
+            filename=f"filtered_data_{session_id}",
+            ext=".csv",
+            mimetype="text/csv",
+            file_format="csv"
+        )
+
+        response_filtered_data_summarization = create_response_report(
+            content=str(summarization),
+            filename=f"filtered_data_summarization_{session_id}",
+            ext=".txt",
+            mimetype="text/plain",
+            file_format="txt"
+        )
+        if inteligent_overview_extension == "enabled":
+            response_inteligent_summary = create_response_report(
+                content=inteligent_overview,
+                filename=f"inteligent_summary_{session_id}",
+                ext=".txt",
+                mimetype="text/plain",
+                file_format="txt"
+            )
+        # Create in-memory ZIP file
+            zip_buffer = io.BytesIO()
+
+            # Create a ZIP file in memory
+            with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+                # Add both responses as separate files in the ZIP
+                zip_file.writestr("filtered_data_report.csv", response_filtered_data.data.decode('utf-8'))
+                zip_file.writestr("filtered_data_summarization.csv", response_filtered_data_summarization.data.decode('utf-8'))
+                zip_file.writestr("intelligent_summary_report.txt", response_inteligent_summary.data.decode('utf-8'))
+
+            # Seek to the beginning of the in-memory file before sending
+            zip_buffer.seek(0)
+
+            # Create the response with the ZIP file
+            resp = make_response(zip_buffer.read())
+            resp.headers["Content-Disposition"] = "attachment; filename=reports.zip"
+            resp.headers["Content-type"] = "application/zip"
+
+            return resp
+        else:
+            zip_buffer = io.BytesIO()
+
+            # Create a ZIP file in memory
+            with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+                # Add both responses as separate files in the ZIP
+                zip_file.writestr("filtered_data_report.csv", response_filtered_data.data.decode('utf-8'))
+                zip_file.writestr("filtered_data_summarization.csv", response_filtered_data_summarization.data.decode('utf-8'))
+                zip_file.writestr("intelligent_summary_report.txt", response_inteligent_summary.data.decode('utf-8'))
+
+            # Seek to the beginning of the in-memory file before sending
+            zip_buffer.seek(0)
+
+            # Create the response with the ZIP file
+            resp = make_response(zip_buffer.read())
+            resp.headers["Content-Disposition"] = "attachment; filename=reports.zip"
+            resp.headers["Content-type"] = "application/zip"
+
+            return resp
+    except Exception as e:
+            return jsonify({'success': False, 'message': str(e)})
+
     
-    # Process the data (example: print it)
-   #  print("Received JSON data:", data)
-
-    # Send a response back
-    # return jsonify({'message': 'JSON received successfully', 'data': data}), 200
 
 if __name__ == '__main__':
     app.run(debug=True)

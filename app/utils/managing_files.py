@@ -1,6 +1,5 @@
-from pcap_handler import pcapHandler
 import pandas as pd
-
+import io
 from scapy.all import *
 import random
 import string
@@ -8,11 +7,7 @@ import pandas as pd
 from pcap_handler import pcapHandler
 from progressbar import ProgressBar
 import binascii # Binary to Ascii 
-
-def read_pcap(file_path):
-    p = scapy.utils.rdpcap(file_path)
-    return p
-
+from flask import make_response
 
 def extract(pcap_file):
     pbar = ProgressBar()
@@ -58,6 +53,11 @@ def extract(pcap_file):
         df = df.drop(columns="index")
     return df
 
+def read_pcap(file_path):
+    p = scapy.utils.rdpcap(file_path)
+    return p
+
+
 def generate_session_id():
     """
     Generates an 8-digit numeric folder name.
@@ -88,3 +88,57 @@ def combine_pcap_files(upload_folder, session_id):
             print(combined_data)
     print(combined_data) 
     return combined_data
+
+
+def create_response_report(
+        content,
+        filename: str,
+        ext: str,
+        mimetype: str,
+        file_format: str = 'csv'):
+    
+    CSV_EXT, EXCEL_EXT, HTML_EXT, TXT_EXT = 'csv', 'excel', 'html', 'txt'
+    
+    buffer = io.BytesIO() if file_format in (CSV_EXT, EXCEL_EXT) else io.StringIO()
+
+    if file_format == CSV_EXT:
+
+        print("save to csv")
+
+        content.to_csv(buffer, index=False)
+
+    elif file_format == TXT_EXT:
+        print("Saving as TXT...")
+        buffer.write(content) 
+
+    else:
+        return None
+    
+    resp = make_response(buffer.getvalue())
+    resp.headers["Content-Disposition"] = \
+        f"attachment; filename={filename}.{ext}"
+    resp.headers["Content-type"] = mimetype
+
+    return resp
+
+
+def write_to_txt(file_name, variable, append=False):
+    """
+    Writes the value of a variable to a .txt file.
+
+    Parameters:
+        file_name (str): The name of the .txt file to write to.
+        variable (any): The variable whose value should be written.
+        append (bool): Whether to append to the file (default: False, which overwrites the file).
+
+    Returns:
+        None
+    """
+    try:
+        mode = 'a' if append else 'w'  # Append or overwrite mode
+        with open(file_name, mode) as file:
+            # Convert variable to string and write it
+            file.write(str(variable) + '\n')
+        print(f"Variable written to {file_name} successfully.")
+    except Exception as e:
+        print(f"Error writing to file: {e}")

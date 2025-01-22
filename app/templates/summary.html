@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>wirebabyshark</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+
+<body>
+    <div class="container mt-3 d-flex justify-content-between align-items-center">
+        <!-- Manage Files Button -->
+        <button type="button" class="btn btn-light" style="margin-top: 15px;" onclick="window.location.href='/filter_view'">
+            <span>&larr; Filtering</span>
+        </button>
+    </div>
+    <div class="container my-5">
+        <!-- Header -->
+        <h1 class="text-center mb-4">Packet Analysis Report</h1>
+
+        <!-- Two-Column Layout -->
+        <div class="row">
+            <!-- Left Column -->
+            <div class="col-lg-6">
+                <!-- Overview Section -->
+                <div class="card mb-4">
+                    <div class="card-header bg-primary text-white">
+                        <h2 class="h5 mb-0">Overview</h2>
+                    </div>
+                    <div class="card-body">
+                        <ul class="list-group list-group-flush">
+                            <li class="list-group-item">Number of packets: {{ filtering_results['Number of packets'] }}</li>
+                            <li class="list-group-item">Unique source IP addresses: {{ filtering_results['Unique source IP addresses'] }}</li>
+                            <li class="list-group-item">Unique destination IP addresses: {{ filtering_results['Unique destination IP addresses'] }}</li>
+                        </ul>
+                    </div>
+                </div>
+                <!-- Inteligent Overview Section -->
+                <div class="card mb-4">
+                    <div class="card-header bg-primary text-white">
+                        <h2 class="h5 mb-0">Inteligent overview</h2>
+                    </div>
+                    <div class="card-body">
+                        <p>{{ inteligent_overview }}</p>
+                    </div>
+                </div>
+
+                <!-- Top Source IP Addresses -->
+                <div class="card mb-4">
+                    <div class="card-header bg-info text-white">
+                        <h2 class="h5 mb-0">Top Source IP Addresses</h2>
+                    </div>
+                    <div class="card-body">
+                        <table class="table table-striped">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>IP Address</th>
+                                    <th>Count</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for ip, count in filtering_results['Top source IP addresses'].items() %}
+                                <tr>
+                                    <td>{{ ip }}</td>
+                                    <td>{{ count }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Top Destination IP Addresses -->
+                <div class="card mb-4">
+                    <div class="card-header bg-info text-white">
+                        <h2 class="h5 mb-0">Top Destination IP Addresses</h2>
+                    </div>
+                    <div class="card-body">
+                        <table class="table table-striped">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>IP Address</th>
+                                    <th>Count</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for ip, count in filtering_results['Top destination IP addresses'].items() %}
+                                <tr>
+                                    <td>{{ ip }}</td>
+                                    <td>{{ count }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div>
+                </div>
+                
+            </div>
+
+            <!-- Right Column -->
+            <div class="col-lg-6">
+                <div class="card mb-4" style="align-items: center; border: 0;">
+                    <div style="display: flex;justify-content: center;align-items: center; margin-top: 2%; margin-bottom:10%;">
+                <form action="/get_filtered_data"  method="GET">
+                    <div class="d-flex justify-content-between align-items-center" style="margin-top: 20px; margin-bottom: 20px;"></div>
+                        <input type="submit" class="btn btn-outline-success btn-lg btn-block" value="Get filtered report"></input>
+                    </div>
+                </form>
+            </div>
+                <!-- Potential Anomalies -->
+                <div class="card mb-4">
+                    <div class="card-header bg-danger text-white">
+                        <h2 class="h5 mb-0">Potential Anomalies</h2>
+                    </div>
+                    <div class="card-body">
+                        <ul class="list-group list-group-flush">
+                            <li class="list-group-item">Large packets: {{ filtering_results['Potential anomalies']['Large packets'] }}</li>
+                            <li class="list-group-item">High traffic from single IP: {{ filtering_results['Potential anomalies']['High traffic from single IP'] }}</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Packet Size Distribution -->
+                <div class="card mb-4">
+                    <div class="card-header bg-info text-white">
+                        <h2 class="h5 mb-0">Packet Size Distribution</h2>
+                    </div>
+                    <div class="card-body">
+                        <ul class="list-group list-group-flush">
+                            <li class="list-group-item">Count: {{ filtering_results['Packet size distribution']['count'] }}</li>
+                            <li class="list-group-item">Unique: {{ filtering_results['Packet size distribution']['unique'] }}</li>
+                            <li class="list-group-item">Most common size: {{ filtering_results['Packet size distribution']['top'] }}</li>
+                            <li class="list-group-item">Frequency of most common size: {{ filtering_results['Packet size distribution']['freq'] }}</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Time Range -->
+                <div class="card mb-4">
+                    <div class="card-header bg-info text-white">
+                        <h2 class="h5 mb-0">Time Range</h2>
+                    </div>
+                    <div class="card-body">
+                        <p>Start: {{ filtering_results['Time range']['start'] }}</p>
+                        <p>End: {{ filtering_results['Time range']['end'] }}</p>
+                    </div>
+                </div>
+
+                <!-- Top Protocols -->
+                <div class="card mb-4">
+                    <div class="card-header bg-info text-white">
+                        <h2 class="h5 mb-0">Top Protocols</h2>
+                    </div>
+                    <div class="card-body">
+                        <table class="table table-striped">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>Protocol</th>
+                                    <th>Count</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for protocol, count in filtering_results['Top protocols'].items() %}
+                                <tr>
+                                    <td>{{ protocol }}</td>
+                                    <td>{{ count }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS Bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+
+</html>
